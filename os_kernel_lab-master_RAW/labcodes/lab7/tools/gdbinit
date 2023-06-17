@@ -1,0 +1,5 @@
+file bin/kernel
+target remote :1234
+tui reg general
+break phi_take_forks_condvar
+continue

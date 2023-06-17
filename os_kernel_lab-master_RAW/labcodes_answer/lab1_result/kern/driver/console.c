@@ -80,6 +80,7 @@ cga_init(void) {
 
 static bool serial_exists = 0;
 
+// serial init
 static void
 serial_init(void) {
     // Turn off the FIFO
@@ -95,7 +96,7 @@ serial_init(void) {
 
     // No modem controls
     outb(COM1 + COM_MCR, 0);
-    // Enable rcv interrupts
+    // Enable rcv interrupts: 使能串口1接收字符后产生中断
     outb(COM1 + COM_IER, COM_IER_RDI);
 
     // Clear any preexisting overrun indications and interrupts
@@ -105,6 +106,7 @@ serial_init(void) {
     (void) inb(COM1+COM_RX);
 
     if (serial_exists) {
+        // 通过中断控制器使能串口1中断
         pic_enable(IRQ_COM1);
     }
 }
@@ -402,10 +404,12 @@ kbd_intr(void) {
     cons_intr(kbd_proc_data);
 }
 
+// keyboard init
 static void
 kbd_init(void) {
     // drain the kbd buffer
     kbd_intr();
+    // 通过中断控制器使能键盘输入中断
     pic_enable(IRQ_KBD);
 }
 

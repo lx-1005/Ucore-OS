@@ -28,10 +28,11 @@ static void print_ticks() {
 static struct gatedesc idt[256] = {{0}};
 
 static struct pseudodesc idt_pd = {
-    sizeof(idt) - 1, (uintptr_t)idt
+    sizeof(idt) - 1, (uintptr_t)idt // idt location: size and start address
 };
 
 /* idt_init - initialize IDT to each of the entry points in kern/trap/vectors.S */
+// IDT init
 void
 idt_init(void) {
      /* LAB1 YOUR CODE : STEP 2 */
@@ -46,6 +47,7 @@ idt_init(void) {
       *     You don't know the meaning of this instruction? just google it! and check the libs/x86.h to know more.
       *     Notice: the argument of lidt is idt_pd. try to find it!
       */
+    // __vectors定义于vector.S中
     extern uintptr_t __vectors[];
     for (int i = 0; i < sizeof(idt) / sizeof(struct gatedesc); i ++) {
         SETGATE(idt[i], 0, GD_KTEXT, __vectors[i], DPL_KERNEL);
@@ -149,7 +151,7 @@ static void
 trap_dispatch(struct trapframe *tf) {
     char c;
 
-    switch (tf->tf_trapno) {
+    switch (tf->tf_trapno) { // 根据中断号处理不同中断
     case IRQ_OFFSET + IRQ_TIMER:
         /* LAB1 YOUR CODE : STEP 3 */
         /* handle the timer interrupt */
@@ -157,7 +159,8 @@ trap_dispatch(struct trapframe *tf) {
          * (2) Every TICK_NUM cycle, you can print some info using a funciton, such as print_ticks().
          * (3) Too Simple? Yes, I think so!
          */
-        ticks ++;
+	// 时钟中断: 操作系统每遇到100次时钟中断后，调用print_ticks子程序，向屏幕上打印一行文字”100 ticks”
+        ticks ++; // 全局变量ticks定义于kern/driver/clock.c
         if (ticks % TICK_NUM == 0) {
             print_ticks();
         }

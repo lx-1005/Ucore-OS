@@ -17,9 +17,11 @@
 #define GD_UDATA    ((SEG_UDATA) << 3)        // user data
 #define GD_TSS        ((SEG_TSS) << 3)        // task segment selector
 
+// privilege level: kernel mode:0, user mode:3
 #define DPL_KERNEL    (0)
 #define DPL_USER    (3)
 
+// kernel and user mode's segment info
 #define KERNEL_CS    ((GD_KTEXT) | DPL_KERNEL)
 #define KERNEL_DS    ((GD_KDATA) | DPL_KERNEL)
 #define USER_CS        ((GD_UTEXT) | DPL_USER)

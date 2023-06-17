@@ -8,6 +8,7 @@
     .word 0, 0;                                                 \
     .byte 0, 0, 0, 0
 
+// segment descriptor: 
 #define SEG_ASM(type,base,lim)                                  \
     .word (((lim) >> 12) & 0xffff), ((base) & 0xffff);          \
     .byte (((base) >> 16) & 0xff), (0x90 | (type)),             \
@@ -15,6 +16,7 @@
 
 
 /* Application segment type bits */
+// set segment's attributes
 #define STA_X       0x8     // Executable segment
 #define STA_E       0x4     // Expand down (non-executable segments)
 #define STA_C       0x4     // Conforming code segment (executable only)

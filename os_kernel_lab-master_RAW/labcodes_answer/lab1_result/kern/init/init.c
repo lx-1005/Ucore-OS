@@ -25,19 +25,19 @@ kern_init(void){
 
     print_kerninfo();
 
-    grade_backtrace();
+    grade_backtrace();          // print stackframe
 
     pmm_init();                 // init physical memory management
 
-    pic_init();                 // init interrupt controller
-    idt_init();                 // init interrupt descriptor table
+    pic_init();                 // init 8259A interrupt controller
+    idt_init();                 // init interrupt descriptor table: IDT[256]
 
     clock_init();               // init clock interrupt
-    intr_enable();              // enable irq interrupt
+    intr_enable();              // enable irq interrupt: in boot/bootasm.S start. cli instruction disable irq interrupt
 
     //LAB1: CAHLLENGE 1 If you try to do it, uncomment lab1_switch_test()
     // user/kernel mode switch test
-    lab1_switch_test();
+    lab1_switch_test(); // UtoK and KtoU
 
     /* do nothing */
     while (1);

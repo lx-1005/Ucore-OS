@@ -25,6 +25,7 @@ static inline void outw(uint16_t port, uint16_t data) __attribute__((always_inli
 static inline uint32_t read_ebp(void) __attribute__((always_inline));
 
 /* Pseudo-descriptors used for LGDT, LLDT(not used) and LIDT instructions. */
+// load GDT, LDT(not used), IDT
 struct pseudodesc {
     uint16_t pd_lim;        // Limit
     uint32_t pd_base;        // Base address

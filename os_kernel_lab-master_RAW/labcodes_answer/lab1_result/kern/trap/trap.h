@@ -43,6 +43,7 @@
 /* *
  * These are arbitrarily chosen, but with care not to overlap
  * processor defined exceptions or interrupt vectors.
+ * system had used some interrupt number, such as 120, 121.
  * */
 #define T_SWITCH_TOU                120    // user/kernel switch
 #define T_SWITCH_TOK                121    // user/kernel switch
@@ -77,6 +78,7 @@ struct trapframe {
     uint16_t tf_padding4;
     uint32_t tf_eflags;
     /* below here only when crossing rings, such as from user to kernel */
+    // save user stack position or kernel stack position
     uintptr_t tf_esp;
     uint16_t tf_ss;
     uint16_t tf_padding5;

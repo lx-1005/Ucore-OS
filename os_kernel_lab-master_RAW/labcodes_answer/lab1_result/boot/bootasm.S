@@ -13,22 +13,23 @@
 .globl start
 start:
 .code16                                             # Assemble for 16-bit mode
-    cli                                             # Disable interrupts
+    cli                                             # Disable interrupts, cli and sti instruction are opposite
     cld                                             # String operations increment
 
-    # Set up the important data segment registers (DS, ES, SS).
+    # Set up the important data segment registers (DS, ES, SS)
     xorw %ax, %ax                                   # Segment number zero
     movw %ax, %ds                                   # -> Data Segment
     movw %ax, %es                                   # -> Extra Segment
     movw %ax, %ss                                   # -> Stack Segment
 
-    # Enable A20:
+    # Enable A20: then cpu can access to 4GB address space
     #  For backwards compatibility with the earliest PCs, physical
     #  address line 20 is tied low, so that addresses higher than
     #  1MB wrap around to zero by default. This code undoes this.
 seta20.1:
+    # 读取0x64端口: 读Status Register
     inb $0x64, %al                                  # Wait for not busy(8042 input buffer empty).
-    testb $0x2, %al
+    testb $0x2, %al                                 # 读取到2则表明缓冲区中没有数据
     jnz seta20.1
 
     movb $0xd1, %al                                 # 0xd1 -> port 0x64
@@ -46,6 +47,7 @@ seta20.2:
     # and segment translation that makes virtual addresses
     # identical to physical addresses, so that the
     # effective memory map does not change during the switch.
+    # use lgdt instruction 加载全局描述符表: (Simple segment mechanism for 1v1)
     lgdt gdtdesc
     movl %cr0, %eax
     orl $CR0_PE_ON, %eax
@@ -68,19 +70,20 @@ protcseg:
     # Set up the stack pointer and call into C. The stack region is from 0--start(0x7c00)
     movl $0x0, %ebp
     movl $start, %esp
-    call bootmain
-
-    # If bootmain returns (it shouldn't), loop.
-spin:
+    
+    
+    call bootmain # call the first function: bootmain()
+spin: # If bootmain returns (it shouldn't), loop.
     jmp spin
 
-# Bootstrap GDT
+# Bootstrap GDT: 3 segments(null, CS, DS)
 .p2align 2                                          # force 4 byte alignment
 gdt:
     SEG_NULLASM                                     # null seg
     SEG_ASM(STA_X|STA_R, 0x0, 0xffffffff)           # code seg for bootloader and kernel
     SEG_ASM(STA_W, 0x0, 0xffffffff)                 # data seg for bootloader and kernel
 
+# 全局描述符表gdt的起始地址和大小: 
 gdtdesc:
     .word 0x17                                      # sizeof(gdt) - 1
     .long gdt                                       # address gdt

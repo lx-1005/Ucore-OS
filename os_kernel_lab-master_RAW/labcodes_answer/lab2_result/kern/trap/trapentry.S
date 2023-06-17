@@ -21,6 +21,7 @@ __alltraps:
     pushl %esp
 
     # call trap(tf), where tf=%esp
+    # 根据不同的中断号进入不同的case分支
     call trap
 
     # pop the pushed stack pointer

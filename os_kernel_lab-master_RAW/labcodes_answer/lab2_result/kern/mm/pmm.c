@@ -75,9 +75,11 @@ pde_t * const vpd = (pde_t *)PGADDR(PDX(VPT), PDX(VPT), 0);
  *   - 0x28:  defined for tss, initialized in gdt_init
  * */
 static struct segdesc gdt[] = {
+    // bootasm.S gdt has init 3 segment: null, kernel cs, kernel data,
     SEG_NULL,
     [SEG_KTEXT] = SEG(STA_X | STA_R, 0x0, 0xFFFFFFFF, DPL_KERNEL),
     [SEG_KDATA] = SEG(STA_W, 0x0, 0xFFFFFFFF, DPL_KERNEL),
+    // in kerl/mm/pmm.c, add 3 segment: user cs, user data, tss
     [SEG_UTEXT] = SEG(STA_X | STA_R, 0x0, 0xFFFFFFFF, DPL_USER),
     [SEG_UDATA] = SEG(STA_W, 0x0, 0xFFFFFFFF, DPL_USER),
     [SEG_TSS]   = SEG_NULL,

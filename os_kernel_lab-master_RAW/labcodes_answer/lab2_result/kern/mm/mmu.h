@@ -62,6 +62,9 @@
 #include <defs.h>
 
 /* Gate descriptors for interrupts and traps */
+// IDT表项的第二个成员gd_ss为段选择子，
+// 第一个成员gd_off_15_0和最后一个成员gd_off_31_16共同组成一个段内偏移地址,
+// 根据段选择子和段内偏移地址就可以得出中断处理程序的地址。
 struct gatedesc {
     unsigned gd_off_15_0 : 16;      // low 16 bits of offset in segment
     unsigned gd_ss : 16;            // segment selector

@@ -24,7 +24,6 @@ struct eipdebuginfo {
     uintptr_t eip_fn_addr;                  // start address of function
     int eip_fn_narg;                        // number of function arguments
 };
-
 /* *
  * stab_binsearch - according to the input, the initial value of
  * range [*@region_left, *@region_right], find a single stab entry
@@ -315,7 +314,7 @@ print_stackframe(void) {
       *    (3.5) popup a calling stackframe
       *           NOTICE: the calling funciton's return addr eip  = ss:[ebp+4]
       *                   the calling funciton's ebp = ss:[ebp]
-      */    
+      */
     // 读取当前栈帧的ebp和eip
     uint32_t ebp = read_ebp(), eip = read_eip();
 
@@ -337,4 +336,3 @@ print_stackframe(void) {
         ebp = ((uint32_t *)ebp)[0];
     }
 }
-

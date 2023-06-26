@@ -46,9 +46,9 @@ void tlb_invalidate(pde_t *pgdir, uintptr_t la);
 void print_pgdir(void);
 
 /* *
- * PADDR - takes a kernel virtual address (an address that points above KERNBASE),
- * where the machine's maximum 256MB of physical memory is mapped and returns the
- * corresponding physical address.  It panics if you pass it a non-kernel virtual address.
+ * PADDR： 逻辑地址 -> 物理地址， 需要减去0xC0000000
+ * 获取一个内核虚拟地址（指向 KERNBASE 上方的地址），其中映射了计算机的最大 256MB 物理内存，并返回相应的物理地址。
+ * 如果您向其传递非内核虚拟地址，panic()会终止OS， 即死机
  * */
 #define PADDR(kva) ({                                                   \
             uintptr_t __m_kva = (uintptr_t)(kva);                       \
@@ -59,8 +59,8 @@ void print_pgdir(void);
         })
 
 /* *
- * KADDR - takes a physical address and returns the corresponding kernel virtual
- * address. It panics if you pass an invalid physical address.
+ * KADDR： 物理地址 -> 逻辑地址, 需要加上0xC0000000
+ * 获取物理地址并返回相应的内核虚拟地址。如果您传递无效的物理地址，panic()会终止OS， 即死机
  * */
 #define KADDR(pa) ({                                                    \
             uintptr_t __m_pa = (pa);                                    \

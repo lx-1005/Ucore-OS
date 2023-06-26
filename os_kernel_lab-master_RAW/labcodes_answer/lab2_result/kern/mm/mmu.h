@@ -111,7 +111,7 @@ struct gatedesc {
         (gate).gd_off_31_16 = (uint32_t)(off) >> 16;        \
     }
 
-/* segment descriptors */
+/* 段描述符： segment descriptors */
 struct segdesc {
     unsigned sd_lim_15_0 : 16;      // low bits of segment limit
     unsigned sd_base_15_0 : 16;     // low bits of segment base address
@@ -147,7 +147,7 @@ struct segdesc {
         (unsigned) (base) >> 24                             \
     }
 
-/* task state segment format (as described by the Pentium architecture book) */
+/* TSS： task state segment format (as described by the Pentium architecture book) */
 struct taskstate {
     uint32_t ts_link;       // old ts selector
     uintptr_t ts_esp0;      // stack pointers and segment selectors
@@ -203,19 +203,20 @@ struct taskstate {
 // To construct a linear address la from PDX(la), PTX(la), and PGOFF(la),
 // use PGADDR(PDX(la), PTX(la), PGOFF(la)).
 
-// page directory index
+// 页目录号： 逻辑地址的高10位
 #define PDX(la) ((((uintptr_t)(la)) >> PDXSHIFT) & 0x3FF)
 
-// page table index
+// 页表号： 逻辑地址的中间10位
 #define PTX(la) ((((uintptr_t)(la)) >> PTXSHIFT) & 0x3FF)
 
-// page number field of address
+// page number field of address： 逻辑地址的高20位，即页目录号和页表号
 #define PPN(la) (((uintptr_t)(la)) >> PTXSHIFT)
 
-// offset in page
+// 物理页内偏移: 逻辑地址的低12位
 #define PGOFF(la) (((uintptr_t)(la)) & 0xFFF)
 
-// construct linear address from indexes and offset
+// 构造线性地址: construct linear address from indexes and offset
+// d:页目录号, t:页表号, o: 物理页内的offset
 #define PGADDR(d, t, o) ((uintptr_t)((d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
 
 // address in page table or page directory entry
@@ -223,34 +224,35 @@ struct taskstate {
 #define PDE_ADDR(pde)   PTE_ADDR(pde)
 
 /* page directory and page table constants */
-#define NPDEENTRY       1024                    // page directory entries per page directory
-#define NPTEENTRY       1024                    // page table entries per page table
+#define NPDEENTRY       1024                    // 页目录表有1024项，大小为4kB， 页目录表仅有一个
+#define NPTEENTRY       1024                    // 页表有1024项， 大小为4kB， 页表有1024个
 
-#define PGSIZE          4096                    // bytes mapped by a page
+#define PGSIZE          4096                    // 页表的一项映射4096B
 #define PGSHIFT         12                      // log2(PGSIZE)
-#define PTSIZE          (PGSIZE * NPTEENTRY)    // bytes mapped by a page directory entry
+#define PTSIZE          (PGSIZE * NPTEENTRY)    // 页目录表的一项对应一个页表，因此映射4096B*1024项=4MB
 #define PTSHIFT         22                      // log2(PTSIZE)
 
 #define PTXSHIFT        12                      // offset of PTX in a linear address
 #define PDXSHIFT        22                      // offset of PDX in a linear address
 
-/* page table/directory entry flags */
-#define PTE_P           0x001                   // Present
-#define PTE_W           0x002                   // Writeable
-#define PTE_U           0x004                   // User
-#define PTE_PWT         0x008                   // Write-Through
-#define PTE_PCD         0x010                   // Cache-Disable
-#define PTE_A           0x020                   // Accessed
-#define PTE_D           0x040                   // Dirty
-#define PTE_PS          0x080                   // Page Size
-#define PTE_MBZ         0x180                   // Bits must be zero
-#define PTE_AVAIL       0xE00                   // Available for software use
-                                                // The PTE_AVAIL bits aren't used by the kernel or interpreted by the
-                                                // hardware, so user processes are allowed to set them arbitrarily.
+/* 虚拟页表的flags */
+#define PTE_P           0x001                   // Present： 表示当前PTE所指向的物理页面是否驻留在内存中
+#define PTE_W           0x002                   // Writeable： 表示是否允许读写
+#define PTE_U           0x004                   // User： 表示该页的访问所需要的特权级。即User(ring 3)是否允许访问
+#define PTE_PWT         0x008                   // Write-Through： 表示是否使用write through缓存写策略
+#define PTE_PCD         0x010                   // Cache-Disable： 表示是否不对该页进行缓存
+#define PTE_A           0x020                   // Accessed： 表示该页是否已被访问过
+#define PTE_D           0x040                   // Dirty： 表示该页是否已被修改
+#define PTE_PS          0x080                   // Page Size： 表示该页的大小
+#define PTE_MBZ         0x180                   // Bits must be zero：  该位必须保留为0
+#define PTE_AVAIL       0xE00                   // Available for software use： 第9-11这三位并没有被内核或中断所使用，可保留给用户进程使用。
 
 #define PTE_USER        (PTE_U | PTE_W | PTE_P)
 
+
+
 /* Control Register flags */
+// CR0
 #define CR0_PE          0x00000001              // Protection Enable
 #define CR0_MP          0x00000002              // Monitor coProcessor
 #define CR0_EM          0x00000004              // Emulation
@@ -263,6 +265,7 @@ struct taskstate {
 #define CR0_CD          0x40000000              // Cache Disable
 #define CR0_PG          0x80000000              // Paging
 
+// CR4
 #define CR4_PCE         0x00000100              // Performance counter enable
 #define CR4_MCE         0x00000040              // Machine Check Enable
 #define CR4_PSE         0x00000010              // Page Size Extensions

@@ -8,7 +8,7 @@
     .word 0, 0;                                                 \
     .byte 0, 0, 0, 0
 
-// segment descriptor: 
+// segment descriptor:
 #define SEG_ASM(type,base,lim)                                  \
     .word (((lim) >> 12) & 0xffff), ((base) & 0xffff);          \
     .byte (((base) >> 16) & 0xff), (0x90 | (type)),             \
@@ -25,4 +25,3 @@
 #define STA_A       0x1     // Accessed
 
 #endif /* !__BOOT_ASM_H__ */
-

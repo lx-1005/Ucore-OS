@@ -42,6 +42,7 @@ waitdisk(void) {
 }
 
 /* readsect - read a single sector at @secno into @dst */
+// 通过设置磁盘参数，并使用输入/输出指令（inb/outb）从磁盘控制器读取特定扇区的数据。
 static void readsect(void *dst, uint32_t secno) {
     // 等待磁盘准备就绪
     waitdisk();
@@ -106,7 +107,7 @@ bootmain(void) {
     // note: does not return
     ((void (*)(void))(ELFHDR->e_entry & 0xFFFFFF))();
 
-bad: 
+bad:
     // A normal master boot sector ends with 0x8A00 and 0x8E00
     outw(0x8A00, 0x8A00);
     outw(0x8A00, 0x8E00);
@@ -115,4 +116,3 @@ bad:
     // if ELF isn't valid, it will loop in this position
     while (1);
 }
-

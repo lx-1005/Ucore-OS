@@ -12,7 +12,7 @@
  *  Please refer to Page 196~198, Section 8.2 of Yan Wei Min's Chinese book
  * "Data Structure -- C programming language".
 */
-// LAB2 EXERCISE 1: YOUR CODE
+// LAB2 EXERCISE 1: YOUR C ODE
 // you should rewrite functions: `default_init`, `default_init_memmap`,
 // `default_alloc_pages`, `default_free_pages`.
 /*
@@ -98,27 +98,31 @@ free_area_t free_area;
 #define free_list (free_area.free_list)
 #define nr_free (free_area.nr_free)
 
+// 初始化双向链表: 空闲内存块nr_free=0
 static void
 default_init(void) {
     list_init(&free_list);
     nr_free = 0;
 }
 
+// 初始化base开始的n个物理页， 设置Page属性， 并将其放入双向链表
 static void
 default_init_memmap(struct Page *base, size_t n) {
     assert(n > 0);
     struct Page *p = base;
     for (; p != base + n; p ++) {
         assert(PageReserved(p));
-        p->flags = p->property = 0;
-        set_page_ref(p, 0);
+        p->flags = p->property = 0; // 表示还未分配
+        set_page_ref(p, 0); // 表示还没有页表项引用该物理页
     }
     base->property = n;
     SetPageProperty(base);
-    nr_free += n;
+    nr_free += n; // 总的空闲内存页数+n
+    // 将新页面插入链表时, 按照地址顺序插到双向链表中
     list_add_before(&free_list, &(base->page_link));
 }
 
+// first-fit: 从双向链表中寻找第一个大小>=n页的空闲内存块，从中分配n页， 并将剩余页面放回去
 static struct Page *
 default_alloc_pages(size_t n) {
     assert(n > 0);
@@ -127,8 +131,7 @@ default_alloc_pages(size_t n) {
     }
     struct Page *page = NULL;
     list_entry_t *le = &free_list;
-    // TODO: optimize (next-fit)
-    while ((le = list_next(le)) != &free_list) {
+    while ((le = list_next(le)) != &free_list) { // 寻找第一个>=n页的物理空闲内存快
         struct Page *p = le2page(le, page_link);
         if (p->property >= n) {
             page = p;
@@ -136,6 +139,7 @@ default_alloc_pages(size_t n) {
         }
     }
     if (page != NULL) {
+        // 当获取到了一个大小足够大的页面地址时，程序会先将该页头从链表中断开，切割，并将剩余空间放回链表中
         if (page->property > n) {
             struct Page *p = page + n;
             p->property = page->property - n;
@@ -149,28 +153,29 @@ default_alloc_pages(size_t n) {
     return page;
 }
 
+// 返还n页， 并与相邻的空闲内存块合并
 static void
-default_free_pages(struct Page *base, size_t n) {
+default_free_pages(struct Page *base, size_t n) { // 返还base开始的n页
     assert(n > 0);
     struct Page *p = base;
     for (; p != base + n; p ++) {
         assert(!PageReserved(p) && !PageProperty(p));
+        // 清空这些页的标志位，以便在接下来的分配中重新使用。
         p->flags = 0;
         set_page_ref(p, 0);
     }
     base->property = n;
     SetPageProperty(base);
     list_entry_t *le = list_next(&free_list);
-    while (le != &free_list) {
+    while (le != &free_list) { // 合并
         p = le2page(le, page_link);
         le = list_next(le);
-        // TODO: optimize
-        if (base + base->property == p) {
+        if (base + base->property == p) { // base和高地址空闲块p合并
             base->property += p->property;
             ClearPageProperty(p);
             list_del(&(p->page_link));
         }
-        else if (p + p->property == base) {
+        else if (p + p->property == base) { // base和低地址空闲块合并
             p->property += base->property;
             ClearPageProperty(base);
             base = p;

@@ -49,15 +49,17 @@ SECTIONS {
         *(.data.pgdir)
     }
 
-    PROVIDE(edata = .);
+    PROVIDE(edata = .);     /* edata[]: kernel的data段结束地址 */
 
     .bss : {
         *(.bss)
     }
 
-    PROVIDE(end = .);
+    PROVIDE(end = .); /* bss段的结束地址, 即整个kernel的结束地址 */
 
     /DISCARD/ : {
         *(.eh_frame .note.GNU-stack)
     }
 }
+
+/* edata表示kernel的data段结束地址；end表示bss段的结束地址（即整个kernel的结束地址）*/

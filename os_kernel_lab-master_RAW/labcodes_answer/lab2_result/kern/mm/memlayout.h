@@ -79,10 +79,10 @@
 typedef uintptr_t pte_t;
 typedef uintptr_t pde_t;
 
-// some constants for bios interrupt 15h AX = 0xE820
-#define E820MAX             20      // number of entries in E820MAP
-#define E820_ARM            1       // address range memory
-#define E820_ARR            2       // address range reserved
+// 用于bios中断0x15记录物理内存块的数据结构
+#define E820MAX             20      // e820map中物理内存块的数目，最大设置为20块
+#define E820_ARM            1       // 表示可被分配的内存块
+#define E820_ARR            2       // 表示保留的内存块，不可映射。
 
 struct e820map {          // 该数据结构保存于物理地址0x8000
     int nr_map;           // map中的元素个数
@@ -108,7 +108,7 @@ struct Page {
 
 /* Flags describing the status of a page frame */
 #define PG_reserved                 0       // the page descriptor is reserved for kernel or unusable, 表示当前页是否被保留，一旦保留该页，则该页无法用于分配
-#define PG_property                 1       // the member 'property' is valid, 表示当前页是否已被分配，为1则表示已分配
+#define PG_property                 1       // 1代表Page::property有效，此时Page::property表示空闲的连续物理page数量
 
 #define SetPageReserved(page)       set_bit(PG_reserved, &((page)->flags))
 #define ClearPageReserved(page)     clear_bit(PG_reserved, &((page)->flags))
@@ -117,7 +117,7 @@ struct Page {
 #define ClearPageProperty(page)     clear_bit(PG_property, &((page)->flags))
 #define PageProperty(page)          test_bit(PG_property, &((page)->flags))
 
-// convert list entry to page
+// 转换list条目到page
 #define le2page(le, member)                 \
     to_struct((le), struct Page, member)
 

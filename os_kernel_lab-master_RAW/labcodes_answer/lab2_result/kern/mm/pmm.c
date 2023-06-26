@@ -48,21 +48,15 @@ uintptr_t boot_cr3;
 // 物理内存管理单元
 const struct pmm_manager *pmm_manager;
 
+
+
 /* *
- * The page directory entry corresponding to the virtual address range
- * [VPT, VPT + PTSIZE) points to the page directory itself. Thus, the page
- * directory is treated as a page table as well as a page directory.
- *
- * One result of treating the page directory as a page table is that all PTEs
- * can be accessed though a "virtual page table" at virtual address VPT. And the
- * PTE for number n is stored in vpt[n].
- *
- * A second consequence is that the contents of the current page directory will
- * always available at virtual address PGADDR(PDX(VPT), PDX(VPT), 0), to which
- * vpd is set bellow.
+ * 从0xFAC00000开始的第一个页保存的是页目录表，接着保存的是若干个页表
+ * 第一个结果是，可以统一通过虚vpt[]访问所有页表（当然包括页目录表）
+ * 第二个结果是页目录表的线性地址可以表示为vpd
  * */
-pte_t * const vpt = (pte_t *)VPT;
-pde_t * const vpd = (pde_t *)PGADDR(PDX(VPT), PDX(VPT), 0);
+pte_t * const vpt = (pte_t *)VPT;  // vpt的基地址
+pde_t * const vpd = (pde_t *)PGADDR(PDX(VPT), PDX(VPT), 0); // 页目录表的基地址对应的线性地址
 
 /* *
  * Global Descriptor Table:
@@ -139,21 +133,21 @@ gdt_init(void) {
     ltr(GD_TSS);
 }
 
-//init_pmm_manager - initialize a pmm_manager instance
+// init_pmm_manager： 初始化pmm_manager实例
 static void
 init_pmm_manager(void) {
-    pmm_manager = &default_pmm_manager;
+    pmm_manager = &default_pmm_manager; // 使用default_pmm_manager管理物理内存
     cprintf("memory management: %s\n", pmm_manager->name);
     pmm_manager->init();
 }
 
-//init_memmap - call pmm->init_memmap to build Page struct for free memory
+//init_memmap： 初始化base开始的n个物理页
 static void
 init_memmap(struct Page *base, size_t n) {
     pmm_manager->init_memmap(base, n);
 }
 
-//alloc_pages - call pmm->alloc_pages to allocate a continuous n*PAGESIZE memory
+// alloc_pages： 调用 pmm->alloc_pages 来分配连续的 n页（n*PGSIZE） 内存
 struct Page *
 alloc_pages(size_t n) {
     struct Page *page=NULL;
@@ -166,19 +160,19 @@ alloc_pages(size_t n) {
     return page;
 }
 
-//free_pages - call pmm->free_pages to free a continuous n*PAGESIZE memory
+// free_pages: 释放从base开始的连续n个空闲物理页
 void
 free_pages(struct Page *base, size_t n) {
     bool intr_flag;
-    local_intr_save(intr_flag);
+    local_intr_save(intr_flag); // 关闭中断
     {
+        // 通过关闭中断，保证释放物理页操作的互斥性
         pmm_manager->free_pages(base, n);
     }
-    local_intr_restore(intr_flag);
+    local_intr_restore(intr_flag); // 打开中断
 }
 
-//nr_free_pages - call pmm->nr_free_pages to get the size (nr*PAGESIZE)
-//of current free memory
+// nr_free_pages: call pmm->nr_free_pages to get the size (nr*PAGESIZE) of current free memory
 size_t
 nr_free_pages(void) {
     size_t ret;
@@ -191,34 +185,9 @@ nr_free_pages(void) {
     return ret;
 }
 
-/* pmm_init - initialize the physical memory management */
+/* pmm_init： 初始化物空闲物理内存块， 将其分成物理页， 由双向链表管理起来*/
 /* 读取物理内存地址0x8000处的内存，查找最大物理地址，并计算出所需的页面数。
  * 虚拟页表VPT(Virtual Page Table)的地址紧跟kernel，其地址为4k对齐。
- * 虚拟地址空间结构如下所示：
- * Virtual memory map:                                          Permissions
- *                                                              kernel/user
- *
- *     4G -----------> +---------------------------------+
- *                     |                                 |
- *                     |         Empty Memory (*)        |
- *                     |                                 |
- *                     +---------------------------------+ 0xFB000000
- *                     |   Cur. Page Table (Kern, RW)    | RW/-- PTSIZE
- *     VPT ----------> +---------------------------------+ 0xFAC00000
- *                     |        Invalid Memory (*)       | --/--
- *     KERNTOP ------> +---------------------------------+ 0xF8000000
- *                     |                                 |
- *                     |    Remapped Physical Memory     | RW/-- KMEMSIZE
- *                     |                                 |
- *     KERNBASE -----> +---------------------------------+ 0xC0000000
- *                     |                                 |
- *                     |                                 |
- *                     |                                 |
- *                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- * Note: The kernel ensures that "Invalid Memory" is *never* mapped.
- *     "Empty Memory" is normally unmapped, but user programs may map pages
- *     there if desired.
- * ************************************************************************************
  * 完成物理内存页管理初始化工作后，其物理地址的分布空间如下:
    +----------------------+ <- 0xFFFFFFFF(4GB)       ----------------------------  4GB
 |  一些保留内存，例如用于|                                保留空间
@@ -259,36 +228,40 @@ nr_free_pages(void) {
  */
 static void
 page_init(void) {
+    // 在boot/bootasm.S中，已经通过bios中断将物理内存信息写到物理地址0x8000处
     struct e820map *memmap = (struct e820map *)(0x8000 + KERNBASE);
-    uint64_t maxpa = 0;
 
+    uint64_t maxpa = 0; // 找最大的物理地址
     cprintf("e820map:\n");
     int i;
-    for (i = 0; i < memmap->nr_map; i ++) {
-        // 物理内存块i的地址范围: [begin, end]
+    for (i = 0; i < memmap->nr_map; i ++) { // 遍历物理内存块
+        // 物理内存块i的地址范围: [begin, end)
         uint64_t begin = memmap->map[i].addr, end = begin + memmap->map[i].size;
         cprintf("  memory: %08llx, [%08llx, %08llx], type = %d.\n",
                 memmap->map[i].size, begin, end - 1, memmap->map[i].type);
-        if (memmap->map[i].type == E820_ARM) {
-            if (maxpa < end && begin < KMEMSIZE) {
+        if (memmap->map[i].type == E820_ARM) { // 可分配
+            if (maxpa < end && begin < KMEMSIZE) { // 更新maxpa
                 maxpa = end;
             }
         }
     }
-    if (maxpa > KMEMSIZE) {
+    if (maxpa > KMEMSIZE) { // 限制最大物理地址为0x38000000
         maxpa = KMEMSIZE;
     }
 
-    extern char end[];
+    extern char end[]; // end表示bss段的结束地址（即整个kernel的结束地址）
 
-    npage = maxpa / PGSIZE;
-    pages = (struct Page *)ROUNDUP((void *)end, PGSIZE);
+    npage = maxpa / PGSIZE; // 物理内存需要多少页
+    pages = (struct Page *)ROUNDUP((void *)end, PGSIZE); // 4kB对齐: 从0到bss段结束处需要多少页
 
+    // todo: 应该将bss段结束处往上的一部分页设置为保留，用于存vpt[]才对
+    // npage是从0到maxpa所需的页数，从pages开始往上保留npages页，不知道什么意思
     for (i = 0; i < npage; i ++) {
         SetPageReserved(pages + i);
     }
 
-    uintptr_t freemem = PADDR((uintptr_t)pages + sizeof(struct Page) * npage);
+    // bss段往上预留出VPT的空间， 再往上直到KMEMSIZE才是可用于分配的空闲内存区域
+    uintptr_t freemem = PADDR((uintptr_t)pages + sizeof(struct Page) * npage); // 空闲内存区域的起始地址
 
     for (i = 0; i < memmap->nr_map; i ++) {
         uint64_t begin = memmap->map[i].addr, end = begin + memmap->map[i].size;
@@ -300,9 +273,11 @@ page_init(void) {
                 end = KMEMSIZE;
             }
             if (begin < end) {
+                // 4kB对齐
                 begin = ROUNDUP(begin, PGSIZE);
                 end = ROUNDDOWN(end, PGSIZE);
                 if (begin < end) {
+                    // 初始化空闲物理内存块 i
                     init_memmap(pa2page(begin), (end - begin) / PGSIZE);
                 }
             }
@@ -350,16 +325,15 @@ pmm_init(void) {
     boot_cr3 = PADDR(boot_pgdir);
 
     // 实现物理内存管理器:
-    // Now the first_fit/best_fit/worst_fit/buddy_system pmm are available.
     init_pmm_manager();
 
-    // detect physical memory space, reserve already used memory,
-    // then use pmm->init_memmap to create free page list
+    // 检测物理内存空间，并用双向链表管理所有空闲物理页
     page_init();
 
-    //use pmm->check to verify the correctness of the alloc/free function in a pmm
+    // 验证pmm class中alloc/free函数的正确性
     check_alloc_page();
 
+    // 检查页目录
     check_pgdir();
 
     static_assert(KERNBASE % PTSIZE == 0 && KERNTOP % PTSIZE == 0);
@@ -452,7 +426,7 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
     return &((pte_t *)KADDR(PDE_ADDR(*pdep)))[PTX(la)];
 }
 
-//get_page - get related Page struct for linear address la using PDT pgdir
+//get_page： - get related Page struct for linear address la using PDT pgdir
 struct Page *
 get_page(pde_t *pgdir, uintptr_t la, pte_t **ptep_store) {
     pte_t *ptep = get_pte(pgdir, la, 0);
@@ -465,8 +439,7 @@ get_page(pde_t *pgdir, uintptr_t la, pte_t **ptep_store) {
     return NULL;
 }
 
-//page_remove_pte - free an Page sturct which is related linear address la
-//                - and clean(invalidate) pte which is related linear address la
+//page_remove_pte： 释放某虚地址所在的页并取消对应二级页表项的映射
 //note: PT is changed, so the TLB need to be invalidate
 static inline void
 page_remove_pte(pde_t *pgdir, uintptr_t la, pte_t *ptep) {
@@ -495,12 +468,17 @@ page_remove_pte(pde_t *pgdir, uintptr_t la, pte_t *ptep) {
                                   //(6) flush tlb
     }
 #endif
+    // 如果传入的页表条目是可用的
     if (*ptep & PTE_P) {
+        // 获取该页表条目所对应的地址
         struct Page *page = pte2page(*ptep);
-        if (page_ref_dec(page) == 0) {
+        // 如果该页的引用次数在减1后为0
+        if (page_ref_dec(page) == 0)
+            // 释放当前页
             free_page(page);
-        }
+        // 清空PTE
         *ptep = 0;
+        // 刷新TLB内的数据
         tlb_invalidate(pgdir, la);
     }
 }
@@ -558,10 +536,11 @@ check_alloc_page(void) {
     cprintf("check_alloc_page() succeeded!\n");
 }
 
+// check_pgdir: 检查页目录表
 static void
 check_pgdir(void) {
     assert(npage <= KMEMSIZE / PGSIZE);
-    assert(boot_pgdir != NULL && (uint32_t)PGOFF(boot_pgdir) == 0);
+    assert(boot_pgdir != NULL && (uint32_t)PGOFF(boot_pgdir) == 0); // 加载时页目录表的线性地址的offset为0, 因为bss段结束处4k对齐了，才保存vpt[]
     assert(get_page(boot_pgdir, 0x0, NULL) == NULL);
 
     struct Page *p1, *p2;
@@ -640,7 +619,7 @@ check_boot_pgdir(void) {
     cprintf("check_boot_pgdir() succeeded!\n");
 }
 
-//perm2str - use string 'u,r,w,-' to present the permission
+//perm2str: 使用字符串“u，r，w，-”表示权限
 static const char *
 perm2str(int perm) {
     static char str[4];

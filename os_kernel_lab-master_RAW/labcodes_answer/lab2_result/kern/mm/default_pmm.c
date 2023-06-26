@@ -95,8 +95,8 @@
  */
 free_area_t free_area;
 
-#define free_list (free_area.free_list)
-#define nr_free (free_area.nr_free)
+#define free_list (free_area.free_list) // 双向链表头
+#define nr_free (free_area.nr_free)     // 双向链表中维护的空闲物理页总数
 
 // 初始化双向链表: 空闲内存块nr_free=0
 static void
@@ -153,7 +153,7 @@ default_alloc_pages(size_t n) {
     return page;
 }
 
-// 返还n页， 并与相邻的空闲内存块合并
+// default_free_pages: 返还n页， 并与相邻的空闲内存块合并
 static void
 default_free_pages(struct Page *base, size_t n) { // 返还base开始的n页
     assert(n > 0);
@@ -195,64 +195,67 @@ default_free_pages(struct Page *base, size_t n) { // 返还base开始的n页
     list_add_before(le, &(base->page_link));
 }
 
+// default_nr_free_pages: 查看当前空闲物理页的数目
 static size_t
 default_nr_free_pages(void) {
     return nr_free;
 }
 
+// basic_check: 检查alloc/free 1个物理页的功能
 static void
 basic_check(void) {
+    // 连续分配三页， 检查是否分配成功
     struct Page *p0, *p1, *p2;
     p0 = p1 = p2 = NULL;
-    assert((p0 = alloc_page()) != NULL);
+    assert((p0 = alloc_page()) != NULL); // 默认分配 1 物理页
     assert((p1 = alloc_page()) != NULL);
     assert((p2 = alloc_page()) != NULL);
-
     assert(p0 != p1 && p0 != p2 && p1 != p2);
     assert(page_ref(p0) == 0 && page_ref(p1) == 0 && page_ref(p2) == 0);
-
-    assert(page2pa(p0) < npage * PGSIZE);
+    assert(page2pa(p0) < npage * PGSIZE); // 分配出来的物理地址，不能超过最大物理页数npage
     assert(page2pa(p1) < npage * PGSIZE);
     assert(page2pa(p2) < npage * PGSIZE);
 
+    // 清空双向链表(先备份双向链表位置)
     list_entry_t free_list_store = free_list;
     list_init(&free_list);
     assert(list_empty(&free_list));
-
     unsigned int nr_free_store = nr_free;
     nr_free = 0;
-
     assert(alloc_page() == NULL);
 
+    // 释放三页
     free_page(p0);
     free_page(p1);
     free_page(p2);
-    assert(nr_free == 3);
+    assert(nr_free == 3); // 返还3页到双向链表中
 
+    // 刚才的3页又被分配
     assert((p0 = alloc_page()) != NULL);
     assert((p1 = alloc_page()) != NULL);
     assert((p2 = alloc_page()) != NULL);
-
+    // 分配不上了
     assert(alloc_page() == NULL);
 
+    // 释放1页，再分配1页
     free_page(p0);
     assert(!list_empty(&free_list));
-
     struct Page *p;
     assert((p = alloc_page()) == p0);
+    // 分配不上了
     assert(alloc_page() == NULL);
 
     assert(nr_free == 0);
     free_list = free_list_store;
     nr_free = nr_free_store;
 
+    // 3页全部释放
     free_page(p);
     free_page(p1);
     free_page(p2);
 }
 
-// LAB2: below code is used to check the first fit allocation algorithm (your EXERCISE 1) 
-// NOTICE: You SHOULD NOT CHANGE basic_check, default_check functions!
+// default_check: 多次alloc/free物理页面, 验证first fit分配算法
 static void
 default_check(void) {
     int count = 0, total = 0;
@@ -264,20 +267,22 @@ default_check(void) {
     }
     assert(total == nr_free_pages());
 
-    basic_check();
+    basic_check(); // 验证alloc/free 1个物理页的功能
 
+    // 分配5个物理页
     struct Page *p0 = alloc_pages(5), *p1, *p2;
     assert(p0 != NULL);
     assert(!PageProperty(p0));
 
+    // 清空双向链表（提前备份）
     list_entry_t free_list_store = free_list;
     list_init(&free_list);
     assert(list_empty(&free_list));
     assert(alloc_page() == NULL);
-
     unsigned int nr_free_store = nr_free;
     nr_free = 0;
 
+    // p0, p1, p2对5个物理页分来分去
     free_pages(p0 + 2, 3);
     assert(alloc_pages(4) == NULL);
     assert(PageProperty(p0 + 2) && p0[2].property == 3);
@@ -307,6 +312,7 @@ default_check(void) {
     free_list = free_list_store;
     free_pages(p0, 5);
 
+    // 玩了一圈后，再检查一遍空闲物理块数和空闲物理页总数是否没变
     le = &free_list;
     while ((le = list_next(le)) != &free_list) {
         struct Page *p = le2page(le, page_link);
@@ -316,6 +322,7 @@ default_check(void) {
     assert(total == 0);
 }
 
+// 默认物理内存分配类的实现, 也可以自己实现一种分配算法，在这里改成新算法的api名字
 const struct pmm_manager default_pmm_manager = {
     .name = "default_pmm_manager",
     .init = default_init,

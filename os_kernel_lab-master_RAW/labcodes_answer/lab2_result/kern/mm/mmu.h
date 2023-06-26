@@ -203,16 +203,17 @@ struct taskstate {
 // To construct a linear address la from PDX(la), PTX(la), and PGOFF(la),
 // use PGADDR(PDX(la), PTX(la), PGOFF(la)).
 
-// 页目录号： 逻辑地址的高10位
+// 页目录号： 地址的高10位
 #define PDX(la) ((((uintptr_t)(la)) >> PDXSHIFT) & 0x3FF)
 
-// 页表号： 逻辑地址的中间10位
+// 页表号： 地址的中间10位
 #define PTX(la) ((((uintptr_t)(la)) >> PTXSHIFT) & 0x3FF)
 
-// page number field of address： 逻辑地址的高20位，即页目录号和页表号
+// page number field of address： 地址la的高20位，即页目录号和页表号
+// Page结构数组使用物理地址的首部与中部(PPN, 20bit)作为索引（注意是物理地址）
 #define PPN(la) (((uintptr_t)(la)) >> PTXSHIFT)
 
-// 物理页内偏移: 逻辑地址的低12位
+// 物理页内偏移: 地址的低12位
 #define PGOFF(la) (((uintptr_t)(la)) & 0xFFF)
 
 // 构造线性地址: construct linear address from indexes and offset
@@ -220,7 +221,7 @@ struct taskstate {
 #define PGADDR(d, t, o) ((uintptr_t)((d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
 
 // address in page table or page directory entry
-#define PTE_ADDR(pte)   ((uintptr_t)(pte) & ~0xFFF)
+#define PTE_ADDR(pte)   ((uintptr_t)(pte) & ~0xFFF) // 把pte的低12位置0
 #define PDE_ADDR(pde)   PTE_ADDR(pde)
 
 /* page directory and page table constants */

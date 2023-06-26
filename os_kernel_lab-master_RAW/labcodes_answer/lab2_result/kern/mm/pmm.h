@@ -7,9 +7,10 @@
 #include <atomic.h>
 #include <assert.h>
 
-// pmm_manager is a physical memory management class. A special pmm manager - XXX_pmm_manager
-// only needs to implement the methods in pmm_manager class, then XXX_pmm_manager can be used
-// by ucore to manage the total physical memory space.
+/*
+ * pmm_manager是一个物理内存管理类。XXX_pmm_manager只需要实现pmm_manager类中的方法，
+ * 然后 ucore 可以使用XXX_pmm_manager来管理总物理内存空间。
+*/
 struct pmm_manager {
     const char *name;                                 // XXX_pmm_manager's name
     void (*init)(void);                               // initialize internal description&management data structure

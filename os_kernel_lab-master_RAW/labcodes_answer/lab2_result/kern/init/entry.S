@@ -49,6 +49,8 @@ next:
 spin:
     jmp spin
 
+// 全局数组bootstack作为内核栈，大小为2个物理页
+// 之后内核可以使用的内核栈只有这一个，中断处理程序可能会从高地址开始，向下覆盖ring3的栈数据。这个漏洞可能是因为未完全实现的内存管理机制所导致的。
 .data
 .align PGSIZE
     .globl bootstack

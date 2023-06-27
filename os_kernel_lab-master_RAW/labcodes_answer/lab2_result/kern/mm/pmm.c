@@ -10,7 +10,7 @@
 #include <error.h>
 
 /* *
- * Task State Segment:
+ * Task State Segment: TSS
  *
  * The TSS may reside anywhere in memory. A special segment register called
  * the Task Register (TR) holds a segment selector that points a valid TSS
@@ -201,7 +201,7 @@ nr_free_pages(void) {
 |                      |
 |                      |
 +----------------------+ <- 空闲内存起始地址      ----------------------------
-|     VPT页表存放位置      |                                VPT页表存放的空间   (4MB左右)
+| Page* pages存放位置   |                                VPT页表存放的空间   (4MB左右)
 +----------------------+ <- bss段结束处           ----------------------------
 |uCore的text、data、bss |                              uCore各段的空间
 +----------------------+ <- 0x00100000(1MB)       ---------------------------- 1MB
@@ -249,18 +249,21 @@ page_init(void) {
         maxpa = KMEMSIZE;
     }
 
-    extern char end[]; // end表示bss段的结束地址（即整个kernel的结束地址）
+    extern char end[]; // end表示bss段的结束地址（即ucore结束的地址）
 
-    npage = maxpa / PGSIZE; // 物理内存需要多少页
+    // 由于bootloader加载ucore的结束地址（用全局指针变量end记录）以上的空间没有被使用，
+    // 所以我们可以把end按页大小为边界取整后，作为管理页级物理内存空间所需的Page结构的内存空间
+    // npage: 预估出管理页级物理内存空间所需的Page数组需要多少页
+    // pages: 从物理地址0到ucore结束处end, 一共多少页
+    npage = maxpa / PGSIZE;
     pages = (struct Page *)ROUNDUP((void *)end, PGSIZE); // 4kB对齐: 从0到bss段结束处需要多少页
 
-    // todo: 应该将bss段结束处往上的一部分页设置为保留，用于存vpt[]才对
-    // npage是从0到maxpa所需的页数，从pages开始往上保留npages页，不知道什么意思
+    // 从ucore结束处（4k对齐），存物理内存管理数组pages, 并将pages的这部分设置为保留，将来不用于内存分配
     for (i = 0; i < npage; i ++) {
         SetPageReserved(pages + i);
     }
 
-    // bss段往上预留出VPT的空间， 再往上直到KMEMSIZE才是可用于分配的空闲内存区域
+    // pages再往上直到KMEMSIZE才是可用于分配的空闲内存区域
     uintptr_t freemem = PADDR((uintptr_t)pages + sizeof(struct Page) * npage); // 空闲内存区域的起始地址
 
     for (i = 0; i < memmap->nr_map; i ++) {
@@ -278,6 +281,7 @@ page_init(void) {
                 end = ROUNDDOWN(end, PGSIZE);
                 if (begin < end) {
                     // 初始化空闲物理内存块 i
+                    // init_memmap函数则是把空闲物理页对应的Page结构中的flags和引用计数ref清零，并加到free_area.free_list指向的双向列表中，为将来的空闲页管理做好初始化准备工作。
                     init_memmap(pa2page(begin), (end - begin) / PGSIZE);
                 }
             }
@@ -285,7 +289,7 @@ page_init(void) {
     }
 }
 
-//boot_map_segment - setup&enable the paging mechanism
+//boot_map_segment： 在启动阶段通过循环遍历页表项的方式，将一段线性地址范围映射到物理地址范围，以便建立页表并启用分页机制。
 // parameters
 //  la:   linear address of this memory need to map (after x86 segment map)
 //  size: memory size
@@ -363,7 +367,7 @@ pmm_init(void) {
 
 }
 
-//get_pte - 找到一个虚地址对应的二级页表项的内核虚地址，如果此二级页表项不存在，则分配一个包含此项的二级页表
+//get_pte - 找到一个线性地址对应的二级页表项的线性地址，如果此二级页表项不存在，则分配一个包含此项的二级页表
 // parameter:
 //  pgdir:  the kernel virtual base address of PDT, 一级页目录表的基地址
 //  la:     the linear address need to map， 线性地址
@@ -472,11 +476,12 @@ page_remove_pte(pde_t *pgdir, uintptr_t la, pte_t *ptep) {
     if (*ptep & PTE_P) {
         // 获取该页表条目所对应的地址
         struct Page *page = pte2page(*ptep);
-        // 如果该页的引用次数在减1后为0
-        if (page_ref_dec(page) == 0)
+        // 如果该物理页不被其他虚拟地址引用
+        if (page_ref_dec(page) == 0) {
             // 释放当前页
             free_page(page);
-        // 清空PTE
+        }
+	// 清空PTE
         *ptep = 0;
         // 刷新TLB内的数据
         tlb_invalidate(pgdir, la);
@@ -499,7 +504,7 @@ page_remove(pde_t *pgdir, uintptr_t la) {
 //  la:    the linear address need to map
 //  perm:  the permission of this Page which is setted in related pte
 // return value: always 0
-//note: PT is changed, so the TLB need to be invalidate
+//note: PT is changed, so the TLB need to be invalidate 
 int
 page_insert(pde_t *pgdir, struct Page *page, uintptr_t la, uint32_t perm) {
     pte_t *ptep = get_pte(pgdir, la, 1);
@@ -665,7 +670,7 @@ get_pgtable_items(size_t left, size_t right, size_t start, uintptr_t *table, siz
     return 0;
 }
 
-//print_pgdir - print the PDT&PT
+//print_pgdir: 打印PDE和PTE内容
 void
 print_pgdir(void) {
     cprintf("-------------------- BEGIN --------------------\n");

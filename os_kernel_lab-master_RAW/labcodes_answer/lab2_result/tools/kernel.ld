@@ -62,4 +62,10 @@ SECTIONS {
     }
 }
 
-/* edata表示kernel的data段结束地址；end表示bss段的结束地址（即整个kernel的结束地址）*/
+/* 
+.text表示代码段的起始地址
+.edata表示kernel的data段起始地址（也就是代码段的结束地址）
+.bss表示bss段的起始地址（同时也是data段的结束地址）
+.end表示bss段的结束地址（即整个ucore kernel的结束地址）
+
+*/

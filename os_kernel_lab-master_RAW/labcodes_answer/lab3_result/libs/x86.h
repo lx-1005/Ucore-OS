@@ -31,6 +31,7 @@ static inline uint32_t read_dr(unsigned regnum) __attribute__((always_inline));
 static inline void write_dr(unsigned regnum, uint32_t value) __attribute__((always_inline));
 
 /* Pseudo-descriptors used for LGDT, LLDT(not used) and LIDT instructions. */
+// load GDT, LDT(not used), IDT
 struct pseudodesc {
     uint16_t pd_lim;        // Limit
     uintptr_t pd_base;      // Base address

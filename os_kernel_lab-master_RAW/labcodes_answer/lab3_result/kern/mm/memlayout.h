@@ -4,22 +4,24 @@
 /* This file contains the definitions for memory management in our OS. */
 
 /* global segment number */
-#define SEG_KTEXT   1
-#define SEG_KDATA   2
-#define SEG_UTEXT   3
-#define SEG_UDATA   4
-#define SEG_TSS     5
+#define SEG_KTEXT   1  // 内核代码段
+#define SEG_KDATA   2  // 内核数据段
+#define SEG_UTEXT   3  // 用户代码段
+#define SEG_UDATA   4  // 用户数据段
+#define SEG_TSS     5  // TSS段
 
-/* global descrptor numbers */
+/* global descriptor numbers */
 #define GD_KTEXT    ((SEG_KTEXT) << 3)      // kernel text
 #define GD_KDATA    ((SEG_KDATA) << 3)      // kernel data
 #define GD_UTEXT    ((SEG_UTEXT) << 3)      // user text
 #define GD_UDATA    ((SEG_UDATA) << 3)      // user data
 #define GD_TSS      ((SEG_TSS) << 3)        // task segment selector
 
-#define DPL_KERNEL  (0)
+// 特权级: kernel mode:0, user mode:3
+#define DPL_KERNEL    (0)
 #define DPL_USER    (3)
 
+// 内核态和用户态的段信息
 #define KERNEL_CS   ((GD_KTEXT) | DPL_KERNEL)
 #define KERNEL_DS   ((GD_KDATA) | DPL_KERNEL)
 #define USER_CS     ((GD_UTEXT) | DPL_USER)
@@ -53,9 +55,9 @@
  * */
 
 /* All physical memory mapped at this address */
-#define KERNBASE            0xC0000000
-#define KMEMSIZE            0x38000000                  // the maximum amount of physical memory
-#define KERNTOP             (KERNBASE + KMEMSIZE)
+#define KERNBASE            0xC0000000                  // 逻辑基地址，对应物理地址0
+#define KMEMSIZE            0x38000000                  // 物理地址的最大值
+#define KERNTOP             (KERNBASE + KMEMSIZE)       // 虚拟地址的最大值
 
 /* *
  * Virtual page table. Entry PDX[VPT] in the PD (Page Directory) contains
@@ -65,8 +67,8 @@
  * */
 #define VPT                 0xFAC00000
 
-#define KSTACKPAGE          2                           // # of pages in kernel stack
-#define KSTACKSIZE          (KSTACKPAGE * PGSIZE)       // sizeof kernel stack
+#define KSTACKPAGE          2                           // 内核栈占两页
+#define KSTACKSIZE          (KSTACKPAGE * PGSIZE)       // 内核栈的大小:8kB
 
 #ifndef __ASSEMBLER__
 
@@ -78,37 +80,38 @@ typedef uintptr_t pte_t;
 typedef uintptr_t pde_t;
 typedef pte_t swap_entry_t; //the pte can also be a swap entry
 
-// some constants for bios interrupt 15h AX = 0xE820
-#define E820MAX             20      // number of entries in E820MAP
-#define E820_ARM            1       // address range memory
-#define E820_ARR            2       // address range reserved
+// 用于bios中断0x15记录物理内存块的数据结构
+#define E820MAX             20      // e820map中物理内存块的数目，最大设置为20块
+#define E820_ARM            1       // 表示可被分配的内存块
+#define E820_ARR            2       // 表示保留的内存块，不可映射。
 
-struct e820map {
-    int nr_map;
+struct e820map {          // 该数据结构保存于物理地址0x8000
+    int nr_map;           // map中的元素个数
     struct {
-        uint64_t addr;
-        uint64_t size;
-        uint32_t type;
+        uint64_t addr;    // 某块内存的起始地址
+        uint64_t size;    // 某块内存的大小
+        uint32_t type;    // 某块内存的属性。1标识可被使用内存块；2表示保留的内存块，不可映射。
     } __attribute__((packed)) map[E820MAX];
 };
 
 /* *
+ * 物理页：
  * struct Page - Page descriptor structures. Each Page describes one
  * physical page. In kern/mm/pmm.h, you can find lots of useful functions
  * that convert Page to other data types, such as phyical address.
  * */
 struct Page {
-    int ref;                        // page frame's reference counter
-    uint32_t flags;                 // array of flags that describe the status of the page frame
-    unsigned int property;          // the num of free block, used in first fit pm manager
-    list_entry_t page_link;         // free list link
+    int ref;                        // 当前页被引用的次数，与内存共享有关
+    uint32_t flags;                 // 标志位的集合，与eflags寄存器类似
+    unsigned int property;          // 空闲的连续page数量。这个成员只会用在连续空闲page中的第一个page
+    list_entry_t page_link;         // 空闲的连续page数量。这个成员只会用在连续空闲page中的第一个page
     list_entry_t pra_page_link;     // used for pra (page replace algorithm)
     uintptr_t pra_vaddr;            // used for pra (page replace algorithm)
 };
 
 /* Flags describing the status of a page frame */
-#define PG_reserved                 0       // the page descriptor is reserved for kernel or unusable
-#define PG_property                 1       // the member 'property' is valid
+#define PG_reserved                 0       // the page descriptor is reserved for kernel or unusable, 表示当前页是否被保留，一旦保留该页，则该页无法用于分配
+#define PG_property                 1       // 1代表Page::property有效，此时Page::property表示空闲的连续物理page数量
 
 #define SetPageReserved(page)       set_bit(PG_reserved, &((page)->flags))
 #define ClearPageReserved(page)     clear_bit(PG_reserved, &((page)->flags))
@@ -117,7 +120,7 @@ struct Page {
 #define ClearPageProperty(page)     clear_bit(PG_property, &((page)->flags))
 #define PageProperty(page)          test_bit(PG_property, &((page)->flags))
 
-// convert list entry to page
+// 转换list条目到page
 #define le2page(le, member)                 \
     to_struct((le), struct Page, member)
 

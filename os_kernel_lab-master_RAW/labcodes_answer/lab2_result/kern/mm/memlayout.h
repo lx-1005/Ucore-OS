@@ -68,7 +68,7 @@
 #define VPT                 0xFAC00000
 
 #define KSTACKPAGE          2                           // 内核栈占两页
-#define KSTACKSIZE          (KSTACKPAGE * PGSIZE)       // 内核栈的大小
+#define KSTACKSIZE          (KSTACKPAGE * PGSIZE)       // 内核栈的大小:8kB
 
 #ifndef __ASSEMBLER__
 

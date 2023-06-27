@@ -8,12 +8,14 @@
 #include <clock.h>
 #include <intr.h>
 #include <pmm.h>
+#include <kmonitor.h>
 #include <vmm.h>
 #include <ide.h>
 #include <swap.h>
 
 int kern_init(void) __attribute__((noreturn));
 
+void grade_backtrace(void);
 static void lab1_switch_test(void);
 
 int
@@ -28,12 +30,12 @@ kern_init(void) {
 
     print_kerninfo();
 
-    grade_backtrace();
+    grade_backtrace();          // print stackframe
 
     pmm_init();                 // init physical memory management
 
-    pic_init();                 // init interrupt controller
-    idt_init();                 // init interrupt descriptor table
+    pic_init();                 // init 8259A interrupt controller
+    idt_init();                 // init interrupt descriptor table: IDT[256]
 
     vmm_init();                 // init virtual memory management
 
@@ -41,11 +43,11 @@ kern_init(void) {
     swap_init();                // init swap
 
     clock_init();               // init clock interrupt
-    intr_enable();              // enable irq interrupt
+    intr_enable();              // enable irq interrupt: in boot/bootasm.S start. cli instruction disable irq interrupt
 
     //LAB1: CAHLLENGE 1 If you try to do it, uncomment lab1_switch_test()
     // user/kernel mode switch test
-    //lab1_switch_test();
+    lab1_switch_test(); // UtoK and KtoU
 
     /* do nothing */
     while (1);
@@ -91,12 +93,25 @@ lab1_print_cur_status(void) {
 
 static void
 lab1_switch_to_user(void) {
-    //LAB1 CHALLENGE 1 : TODO
+    //LAB1 CHALLENGE 1 :
+	asm volatile (
+	    "sub $0x8, %%esp \n"
+	    "int %0 \n"
+	    "movl %%ebp, %%esp"
+	    : 
+	    : "i"(T_SWITCH_TOU)
+	);
 }
 
 static void
 lab1_switch_to_kernel(void) {
-    //LAB1 CHALLENGE 1 :  TODO
+    //LAB1 CHALLENGE 1 :
+	asm volatile (
+	    "int %0 \n"
+	    "movl %%ebp, %%esp \n"
+	    : 
+	    : "i"(T_SWITCH_TOK)
+	);
 }
 
 static void

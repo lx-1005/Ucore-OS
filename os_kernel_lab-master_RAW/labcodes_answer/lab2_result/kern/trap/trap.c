@@ -49,7 +49,8 @@ idt_init(void) {
       */
     // __vectors定义于vector.S中
     extern uintptr_t __vectors[];
-    for (int i = 0; i < sizeof(idt) / sizeof(struct gatedesc); i ++) {
+    int i;
+    for (i = 0; i < sizeof(idt) / sizeof(struct gatedesc); i ++) {
         SETGATE(idt[i], 0, GD_KTEXT, __vectors[i], DPL_KERNEL);
     }
     lidt(&idt_pd);

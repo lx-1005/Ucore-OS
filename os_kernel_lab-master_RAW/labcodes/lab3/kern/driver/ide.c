@@ -76,7 +76,7 @@ ide_wait_ready(unsigned short iobase, bool check_error) {
 }
 
 void
-ide_init(void) {
+ide_init(void) { // 该函数初始化 IDE 设备，检索其功能和型号名称，并为进一步的操作（例如读取和写入数据）做好准备。
     static_assert((SECTSIZE % 4) == 0);
     unsigned short ideno, iobase;
     for (ideno = 0; ideno < MAX_IDE; ideno ++) {

@@ -12,6 +12,7 @@ swapfs_init(void) {
     if (!ide_device_valid(SWAP_DEV_NO)) {
         panic("swap fs isn't available.\n");
     }
+    // max_swap_offset: 交换设备上最多可以存多少页的内容
     max_swap_offset = ide_device_size(SWAP_DEV_NO) / (PGSIZE / SECTSIZE);
 }
 
@@ -24,4 +25,3 @@ int
 swapfs_write(swap_entry_t entry, struct Page *page) {
     return ide_write_secs(SWAP_DEV_NO, swap_offset(entry) * PAGE_NSECT, page2kva(page), PAGE_NSECT);
 }
-

@@ -37,7 +37,6 @@ kern_init(void) {
     idt_init();                 // init interrupt descriptor table
 
     vmm_init();                 // init virtual memory management
-
     ide_init();                 // init ide devices
     swap_init();                // init swap
 

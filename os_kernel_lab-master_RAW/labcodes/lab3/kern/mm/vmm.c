@@ -312,35 +312,30 @@ volatile unsigned int pgfault_num=0;
 int
 do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
     int ret = -E_INVAL;
-    // 获取触发pgfault的虚拟地址所在虚拟页
+    // 获取触发pgfault的虚拟地址所在虚拟页（可以判断addr是不是一个合法虚地址）
     struct vma_struct *vma = find_vma(mm, addr);
-
     pgfault_num++;
+
     // 如果当前访问的虚拟地址不在已经分配的虚拟页中
     if (vma == NULL || vma->vm_start > addr) {
         cprintf("not valid addr %x, and  can not find it in vma\n", addr);
         goto failed;
     }
     // 检测错误代码。这里的检测不涉及特权判断。
-    switch (error_code & 3) {
-    default:
+    switch (error_code & 3) { // [R/W, P]
+    default: /* error code flag : (W/R=1, P=1):  write, present */
         // 写，同时存在物理页，则写时复制
-        // 需要注意的是，default会执行case2的代码，也就是判断是否有写权限。
-    case 2:
-        // 读，同时不存在物理页
-        // 同时如果当前操作是写入，但所在虚拟页不允许写入
+        // 需要注意的是，default会执行case2的代码，也就是判断vma是否有写权限。
+    case 2: /* error code flag : (W/R=1, P=0): write, no present */
         if (!(vma->vm_flags & VM_WRITE)) {
             cprintf("do_pgfault failed: error code flag = write AND not present, but the addr's vma cannot write\n");
             goto failed;
         }
         break;
     case 1: /* error code flag : (W/R=0, P=1): read, present */
-        // 读，同时存在物理页。那就不可能会调用page fault，肯定哪里有问题，直接failed
         cprintf("do_pgfault failed: error code flag = read AND present\n");
         goto failed;
     case 0: /* error code flag : (W/R=0, P=0): read, not present */
-        // 写，同时不存在物理页面
-        // 如果当前操作是读取，但所在虚拟页不允许读取或执行
         if (!(vma->vm_flags & (VM_READ | VM_EXEC))) {
             cprintf("do_pgfault failed: error code flag = read AND not present, but the addr's vma cannot read or exec\n");
             goto failed;

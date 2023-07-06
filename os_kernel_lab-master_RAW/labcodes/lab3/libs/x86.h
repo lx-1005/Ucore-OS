@@ -51,14 +51,14 @@ static inline uintptr_t rcr3(void) __attribute__((always_inline));
 static inline void invlpg(void *addr) __attribute__((always_inline));
 
 static inline uint8_t
-inb(uint16_t port) {
+inb(uint16_t port) { // 从指定端口读1字节内容，并返回
     uint8_t data;
     asm volatile ("inb %1, %0" : "=a" (data) : "d" (port) : "memory");
     return data;
 }
 
 static inline void
-insl(uint32_t port, void *addr, int cnt) {
+insl(uint32_t port, void *addr, int cnt) { // 此 insl 函数通常用于需要直接访问 I/O 端口的低级编程场景，例如设备驱动程序或操作系统开发，以将一系列数据从端口读取到内存中。
     asm volatile (
         "cld;"
         "repne; insl;"
@@ -68,17 +68,17 @@ insl(uint32_t port, void *addr, int cnt) {
 }
 
 static inline void
-outb(uint16_t port, uint8_t data) {
+outb(uint16_t port, uint8_t data) { // 将1个字节的数据data写到指定端口
     asm volatile ("outb %0, %1" :: "a" (data), "d" (port) : "memory");
 }
 
 static inline void
-outw(uint16_t port, uint16_t data) {
+outw(uint16_t port, uint16_t data) {// 将2个字节的数据data写到指定端口
     asm volatile ("outw %0, %1" :: "a" (data), "d" (port) : "memory");
 }
 
 static inline void
-outsl(uint32_t port, const void *addr, int cnt) {
+outsl(uint32_t port, const void *addr, int cnt) { // 将一系列数据从内存写入到特定端口。
     asm volatile (
         "cld;"
         "repne; outsl;"
@@ -88,19 +88,19 @@ outsl(uint32_t port, const void *addr, int cnt) {
 }
 
 static inline uint32_t
-read_ebp(void) {
+read_ebp(void) { // 返回ebp寄存器的值
     uint32_t ebp;
     asm volatile ("movl %%ebp, %0" : "=r" (ebp));
     return ebp;
 }
 
 static inline void
-breakpoint(void) {
+breakpoint(void) { // 调用int 3中断，将控制权交给调试器，以便开发人员调试代码
     asm volatile ("int $3");
 }
 
 static inline uint32_t
-read_dr(unsigned regnum) {
+read_dr(unsigned regnum) { // 读取特定调试寄存器的值
     uint32_t value = 0;
     switch (regnum) {
     case 0: asm volatile ("movl %%db0, %0" : "=r" (value)); break;
